@@ -12,8 +12,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 )
+
+// Message ...
+type Message struct {
+	Text string `json:"text"`
+}
 
 func get(res http.ResponseWriter, req *http.Request) {
 	if req.Method != "GET" && req.Method != "POST" {
@@ -25,20 +32,28 @@ func get(res http.ResponseWriter, req *http.Request) {
 			res.Header().Set("Content-Type", "text/html")
 			io.WriteString(res, "Hello. Use the POST query for send message.")
 		case "POST":
-			var result map[string]string
-			decoder := json.NewDecoder(req.Body)
-			err := decoder.Decode(&result)
 
+			// Debug log post query body
+			dump, err := httputil.DumpRequest(req, true)
 			if err != nil {
-				http.Error(res, "BAD REQUEST. Detail info:"+err.Error(), http.StatusBadRequest)
+				http.Error(res, fmt.Sprint(err), http.StatusInternalServerError)
+				return
+			}
+			fmt.Println(string(dump))
+
+			var message Message
+			body, err := ioutil.ReadAll(req.Body)
+			if err != nil {
+				return
+			}
+			err = json.Unmarshal(body, &message)
+			if err != nil {
 				return
 			}
 
-			fmt.Println("\n message body=", result["body"])
-
 			res.WriteHeader(http.StatusCreated)
 			res.Header().Set("Content-Type", "text/html")
-			io.WriteString(res, "Your message has been sent")
+			io.WriteString(res, fmt.Sprintf("Your message text: '%s' has been sent", message.Text))
 		}
 	}
 }
