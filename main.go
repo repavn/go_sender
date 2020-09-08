@@ -1,7 +1,7 @@
 /*
 	This is a service of sending message to the messengers (telegramm, email,)
 	TODO:
-	1. Take POST queries with message body, head, file etc. (m.b https://golang.org/pkg/net/http/fcgi/, https://uwsgi-docs.readthedocs.io/en/latest/Go.html)
+	1. Take POST queries with message subject, file etc. (m.b https://golang.org/pkg/net/http/fcgi/, https://uwsgi-docs.readthedocs.io/en/latest/Go.html)
 	2. After POST query - fast response, and asynchronously send message to email
 	3. Authorize query
 */
@@ -15,11 +15,34 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
+	"net/smtp"
+	"os"
 )
 
 // Message ...
 type Message struct {
 	Text string `json:"text"`
+}
+
+func send(message *Message) {
+	// send message to email
+
+	from := os.Getenv("FROM_MAIL")
+	to := []string{os.Getenv("TO_MAIL")}
+	pass := os.Getenv("MAIL_PASS")
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := os.Getenv("SMTP_PORT")
+	auth := smtp.PlainAuth("", from, pass, smtpHost)
+	text := []byte(message.Text)
+
+	fmt.Println("send mail params: ", from, to, pass, auth)
+	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, text)
+	if err != nil {
+		fmt.Println("Error of sending:", err)
+		return
+	}
+	fmt.Println("OK email message is sent")
+	return
 }
 
 func get(res http.ResponseWriter, req *http.Request) {
@@ -51,6 +74,7 @@ func get(res http.ResponseWriter, req *http.Request) {
 				return
 			}
 
+			send(&message)
 			res.WriteHeader(http.StatusCreated)
 			res.Header().Set("Content-Type", "text/html")
 			io.WriteString(res, fmt.Sprintf("Your message text: '%s' has been sent", message.Text))
