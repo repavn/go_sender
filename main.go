@@ -45,7 +45,7 @@ func send(message *Message) {
 	return
 }
 
-func get(res http.ResponseWriter, req *http.Request) {
+func index(res http.ResponseWriter, req *http.Request) {
 	if req.Method != "GET" && req.Method != "POST" {
 		res.WriteHeader(http.StatusMethodNotAllowed)
 	} else {
@@ -84,6 +84,6 @@ func get(res http.ResponseWriter, req *http.Request) {
 
 func main() {
 	fmt.Println("service of sending is runnning")
-	http.HandleFunc("/", get)
+	http.HandleFunc("/", index)
 	http.ListenAndServe("127.0.0.1:9999", nil)
 }
