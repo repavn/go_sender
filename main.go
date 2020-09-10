@@ -255,5 +255,5 @@ func main() {
 	fmt.Println("service of sending is runnning")
 	http.HandleFunc("/send/mail", index)
 	http.HandleFunc("/send/telegram", index)
-	http.ListenAndServe("127.0.0.1:9999", nil)
+	http.ListenAndServe(":9999", nil)
 }
