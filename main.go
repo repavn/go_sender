@@ -1,4 +1,55 @@
 /*
+
+	telegram get updates
+
+	{
+		"ok": true,
+		"result": [
+			{
+			"update_id": 44732148,
+			"message": {
+				"message_id": 2,
+				"from": {
+				"id": 543712595,
+				"is_bot": false,
+				"first_name": "Temitch",
+				"last_name": "Loverman",
+				"username": "temitch",
+				"language_code": "ru"
+				},
+				"chat": {
+				"id": -393115454,
+				"title": "BotSendGroup",
+				"type": "group",
+				"all_members_are_administrators": true
+				},
+				"date": 1599661394,
+				"new_chat_participant": {
+				"id": 1244918083,
+				"is_bot": true,
+				"first_name": "go_sender",
+				"username": "repavnnnnnnnnnnnnn_bot"
+				},
+				"new_chat_member": {
+				"id": 1244918083,
+				"is_bot": true,
+				"first_name": "go_sender",
+				"username": "repavnnnnnnnnnnnnn_bot"
+				},
+				"new_chat_members": [
+				{
+					"id": 1244918083,
+					"is_bot": true,
+					"first_name": "go_sender",
+					"username": "repavnnnnnnnnnnnnn_bot"
+				}
+				]
+			}
+			}
+		]
+	}
+
+
 	example client query:
 	curl --location --request POST 'http://127.0.0.1:9999/' \
 	--header 'Content-Type: application/json' \
@@ -15,6 +66,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,8 +78,35 @@ import (
 	"path/filepath"
 )
 
+// Chat ...
+type Chat struct {
+	ID int `json:"id"`
+}
+
+// TeleMessage ...
+type TeleMessage struct {
+	Chat Chat `json:"chat"`
+}
+
+// TeleResult ...
+type TeleResult struct {
+	Message TeleMessage `json:"message"`
+}
+
+// Update ...
+type Update struct {
+	Ok     bool         `json:"ok"`
+	Result []TeleResult `json:"result"`
+}
+
 const mail = "mail"
 const telegram = "telegram"
+
+// TeleAPIURL ...
+var TeleAPIURL = "https://api.telegram.org/"
+
+// TeleBotToken ...
+var TeleBotToken = os.Getenv("SEND_BOT_TOKEN")
 
 // LogRawHTTP prints post query body
 func LogRawHTTP(request *http.Request, response http.ResponseWriter) {
@@ -37,7 +116,7 @@ func LogRawHTTP(request *http.Request, response http.ResponseWriter) {
 		http.Error(response, fmt.Sprint(err), http.StatusInternalServerError)
 		return
 	}
-	fmt.Println(fmt.Sprintf("***LOG http query, BEGIN: \n %s \n END***\n", string(dump)))
+	fmt.Println(fmt.Sprintf("***LOG income http query, BEGIN: \n %s \n ***END\n", string(dump)))
 }
 
 // Message - is the base interface with method send()
@@ -61,6 +140,53 @@ type EmailMessage struct {
 	BaseMessage
 	Subject string `json:"subject"`
 	To      string `json:"to"`
+}
+
+// TelegramMessage ...
+type TelegramMessage struct {
+	BaseMessage
+}
+
+// sendTelegram - sends message to telegram bot group
+func sendTelegram(text string) {
+	url := fmt.Sprintf("%sbot%s/getUpdates", TeleAPIURL, TeleBotToken)
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Println("error getUpdates:", err)
+		return
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	var update Update
+	json.Unmarshal(body, &update)
+
+	var ChatID int
+	ChatID = update.Result[0].Message.Chat.ID
+	type Body struct {
+		ChatID int    `json:"chat_id"`
+		Text   string `json:"text"`
+	}
+
+	body, err = json.Marshal(Body{ChatID, text})
+	r := bytes.NewReader(body)
+
+	if err != nil {
+		fmt.Println("error json.Marshal (chat):", err)
+		return
+	}
+
+	sendURL := fmt.Sprintf("%sbot%s/sendMessage", TeleAPIURL, TeleBotToken)
+	// Send message to bot group
+	resp, err = http.Post(sendURL, "application/json", r)
+	if err != nil {
+		fmt.Println("error sendMessage:", err)
+		return
+	}
+}
+
+// Send - extracts send options and send to email, return message text
+func (message *TelegramMessage) send() string {
+	go sendTelegram(message.Text)
+	return message.Text
 }
 
 // SendMail - sends message to email address
@@ -96,15 +222,15 @@ func index(res http.ResponseWriter, req *http.Request) {
 	} else {
 		LogRawHTTP(req, res)
 		var message Message
-		var bm BaseMessage
-		var em EmailMessage
 		var text string
 
 		switch messanger := filepath.Base(req.URL.Path); messanger {
 		case mail:
-			message = &em
+			message = &EmailMessage{}
+		case telegram:
+			message = &TelegramMessage{}
 		default:
-			message = &bm
+			message = &BaseMessage{}
 		}
 
 		body, err := ioutil.ReadAll(req.Body)
@@ -116,7 +242,7 @@ func index(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		// send message asynchronously, without callback
+		// send message
 		text = message.send()
 
 		res.WriteHeader(http.StatusCreated)
