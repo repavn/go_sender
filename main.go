@@ -1,68 +1,3 @@
-/*
-
-	telegram get updates
-
-	{
-		"ok": true,
-		"result": [
-			{
-			"update_id": 44732148,
-			"message": {
-				"message_id": 2,
-				"from": {
-				"id": 543712595,
-				"is_bot": false,
-				"first_name": "Temitch",
-				"last_name": "Loverman",
-				"username": "temitch",
-				"language_code": "ru"
-				},
-				"chat": {
-				"id": -393115454,
-				"title": "BotSendGroup",
-				"type": "group",
-				"all_members_are_administrators": true
-				},
-				"date": 1599661394,
-				"new_chat_participant": {
-				"id": 1244918083,
-				"is_bot": true,
-				"first_name": "go_sender",
-				"username": "repavnnnnnnnnnnnnn_bot"
-				},
-				"new_chat_member": {
-				"id": 1244918083,
-				"is_bot": true,
-				"first_name": "go_sender",
-				"username": "repavnnnnnnnnnnnnn_bot"
-				},
-				"new_chat_members": [
-				{
-					"id": 1244918083,
-					"is_bot": true,
-					"first_name": "go_sender",
-					"username": "repavnnnnnnnnnnnnn_bot"
-				}
-				]
-			}
-			}
-		]
-	}
-
-
-	example client query:
-	curl --location --request POST 'http://127.0.0.1:9999/' \
-	--header 'Content-Type: application/json' \
-	--data-raw '{"text": "Hello, test recipient 9!"}'
-
-	This is a service of sending message to the messengers (telegram, email,)
-	TODO:
-	1. Take POST queries with message subject, file etc. (m.b https://golang.org/pkg/net/http/fcgi/, https://uwsgi-docs.readthedocs.io/en/latest/Go.html)
-	2. After POST query - fast response, and asynchronously send message to email
-	3. Authorize query
-	4. Print via log package
-*/
-
 package main
 
 import (
@@ -76,28 +11,8 @@ import (
 	"net/smtp"
 	"os"
 	"path/filepath"
+	"strconv"
 )
-
-// Chat ...
-type Chat struct {
-	ID int `json:"id"`
-}
-
-// TeleMessage ...
-type TeleMessage struct {
-	Chat Chat `json:"chat"`
-}
-
-// TeleResult ...
-type TeleResult struct {
-	Message TeleMessage `json:"message"`
-}
-
-// Update ...
-type Update struct {
-	Ok     bool         `json:"ok"`
-	Result []TeleResult `json:"result"`
-}
 
 const mail = "mail"
 const telegram = "telegram"
@@ -149,36 +64,35 @@ type TelegramMessage struct {
 
 // sendTelegram - sends message to telegram bot group
 func sendTelegram(text string) {
-	url := fmt.Sprintf("%sbot%s/getUpdates", TeleAPIURL, TeleBotToken)
-	resp, err := http.Get(url)
-	if err != nil {
-		fmt.Println("error getUpdates:", err)
+
+	var chatID int
+	var err error
+	if os.Getenv("GROUP_CHAT_ID") != "" {
+		chatID, err = strconv.Atoi(os.Getenv("GROUP_CHAT_ID"))
+		if err != nil {
+			fmt.Println("error get from env (chat):", err)
+			return
+		}
+	} else {
 		return
 	}
-	body, err := ioutil.ReadAll(resp.Body)
-	var update Update
-	json.Unmarshal(body, &update)
 
-	var ChatID int
-	ChatID = update.Result[0].Message.Chat.ID
 	type Body struct {
 		ChatID int    `json:"chat_id"`
 		Text   string `json:"text"`
 	}
 
-	body, err = json.Marshal(Body{ChatID, text})
+	body, err := json.Marshal(Body{chatID, text})
 	r := bytes.NewReader(body)
-
 	if err != nil {
 		fmt.Println("error json.Marshal (chat):", err)
 		return
 	}
 
-	sendURL := fmt.Sprintf("%sbot%s/sendMessage", TeleAPIURL, TeleBotToken)
 	// Send message to bot group
-	resp, err = http.Post(sendURL, "application/json", r)
+	resp, err := http.Post(fmt.Sprintf("%sbot%s/sendMessage", TeleAPIURL, TeleBotToken), "application/json", r)
 	if err != nil {
-		fmt.Println("error sendMessage:", err)
+		fmt.Println("error sendMessage: err, response", err, resp)
 		return
 	}
 }

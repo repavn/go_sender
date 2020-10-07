@@ -12,7 +12,7 @@ This is service for send text messages by HTTP queries (to messangers email, tel
 Install docker to your host os.   
 
 ```console
-    docker build -t sender --build-arg SEND_BOT_TOKEN --build-arg SMTP_HOST --build-arg SMTP_PORT --build-arg FROM_MAIL --build-arg MAIL_PASS .
+    docker build -t sender --build-arg SEND_BOT_TOKEN --build-arg SMTP_HOST --build-arg SMTP_PORT --build-arg FROM_MAIL --build-arg MAIL_PASS --build-arg GROUP_CHAT_ID .
     docker run -p 9999:9999 -d -t sender
 ```   
 #### Production instructions   
