@@ -1,5 +1,5 @@
 ### Desctiption   
-This is service for send text messages by HTTP queries (to messangers email, telegram and etc.) from another executed programm (for example - site backend engines, another services).   
+This is a service for send text messages by HTTP queries (to messengers email, telegram and etc.) from another executed program (for example - site backend engines, other services).
 #### Set your authorization settings in your host via environment variables (i use gmail account):   
 ```console
     export FROM_MAIL="<your-gmail-account-email>@gmail.com"
